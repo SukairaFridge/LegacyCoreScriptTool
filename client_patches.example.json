@@ -1,0 +1,14 @@
+{
+  "patches": [
+    {
+      "script": "LoadingScript",
+      "strings": [
+        {
+          "old": "Loading...",
+          "new": "Custom...",
+          "string_index": 163
+        }
+      ]
+    }
+  ]
+}
