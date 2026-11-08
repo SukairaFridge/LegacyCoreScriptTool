@@ -72,34 +72,6 @@ layouts. It does not overwrite adjacent data or disable integrity checks.
 The single-script `extract_corescripts.py patch` command supports this too.
 ELF/APK replacements remain restricted to their existing allocations.
 
-### Missing Windows content and runtime limits
-
-`--content-from client.apk` copies only the nested OBB's **634 `content/`
-files (9,734,036 bytes)**. It does not copy Android shaders or platform assets,
-and preserves the supplied Windows `PlatformContent/`, shaders, DLLs, and
-configuration. You can instead supply an OBB/ZIP or a local `content` directory.
-Existing Windows content is never overwritten. **Android content is a reuse
-candidate, not a verified complete Windows content distribution.**
-
-Binary verification, dry runs, batch patching, oversized PE relocation,
-checksums, corruption rejection, and content copying have been exercised
-locally. The Windows client has **not been executed or runtime-tested** here.
-Authenticode signatures become invalid after executable changes; VMProtect or
-other integrity checks may reject modifications. No such checks are bypassed.
-
-## Browser-port preparation
-
-`web/index.html` previews the original OBB assets and provides a launch scaffold
-for a **separately supplied, real Emscripten engine port**. Run
-`python3 -m http.server 8000 --bind 127.0.0.1 --directory web` and open
-<http://127.0.0.1:8000/>. The assets have been prepared with `prepare_web.py`.
-
-**This is not a functional Roblox WASM conversion.** The APK's ARM Android
-`libroblox.so` cannot be recompiled into WASM without engine source or a full
-Android emulation environment. No placeholder engine WASM is included. See
-`web/README.md` for exact binary findings, extraction instructions, and port
-requirements.
-
 ## CoreScript extraction
 
 `extract_corescripts.py` extracts the **actual embedded bytecode** from this
@@ -205,29 +177,6 @@ jar --create --file analysis/tools/unluac.jar --main-class unluac.Main \
   -C analysis/tools/unluac-classes .
 ```
 
-## Findings for this APK
-
-- ZIP timestamps indicate a July 24, 2015 build. The 2016 reference is useful,
-  but does not by itself establish this APK's version or exact VM behavior.
-- Engine library: `lib/armeabi/libroblox.so`, 20,051,408 bytes, ELF32 ARM.
-- The engine contains **40 valid embedded scripts**: 25 CoreScript/library/
-  starter entries and 15 module entries. Of the first 25, 19 are under
-  `CoreScripts/`, three are libraries, and three are loading/starter scripts.
-- The first table starts at library file offset `0x0120c8fc`; the module table
-  starts at `0x0120ca28`. These are file offsets, not APK offsets or runtime
-  addresses. Each entry is three little-endian 32-bit words:
-  `{name_pointer, bytecode_pointer, bytecode_size}`.
-- Names are ROT13 encoded, e.g. `PberFpevcgf/Gbcone` means `CoreScripts/Topbar`.
-- Each blob uses RSB1: recover a four-byte XOR key using the known magic,
-  undo XOR with `(key[position % 4] + position * 41) & 255`, verify XXH32
-  with seed 42, then decompress the raw LZ4 block following its 8-byte header.
-- The resulting payload is a Roblox-specific serialized Lua prototype tree
-  with a shared string table. **Its instruction words are still VM encoded.**
-  It is not a stock `luac` chunk and is not a Lua source decompilation.
-- `assets/main.1.com.roblox.client.obb` is itself a ZIP containing 41 readable
-  `.lua` files and two `.rbxmx` models. These are bundled source copies, not
-  decompiled output; source-to-bytecode equivalence has not been established.
-
 ## Extract
 
 ```sh
@@ -304,28 +253,6 @@ encoder. `legacy_bytecode.py` implements stock Lua 5.1 import, legacy instructio
 encoding, payload serialization, and independent comparisons. Use
 `apply_client_patches.py` for the explicitly opt-in source pipeline described
 above; the single-script extractor still expects an already encoded `.rbxb`.
-
-## Installation and verification limits
-
-APK rebuilding removes obsolete JAR signatures and produces an **unsigned**
-APK. Align and sign the result with Android SDK tools before installing it.
-No signing key or Android SDK signing tools are included. Using a different
-signing identity may prevent upgrading an existing installation. Binary
-integrity checks and server/client incompatibilities may also prevent a
-modified client from running. Do not rely on an old client for sensitive use.
-
-Validation performed locally:
-
-- All 40 blobs pass XXH32 verification, LZ4 decompression, and complete
-  prototype/string-table parsing.
-- Python XXH32 and LZ4 implementations were checked against installed native
-  libraries using synthetic inputs and all 40 real blobs.
-- The loading-text replacement was rebuilt into a temporary APK, extracted
-  again, and checked to preserve every other script and non-signature member.
-- Corrupted and oversized ELF/APK replacements are rejected, and the input APK hash
-  remains unchanged.
-
-**A patched APK has not been installed or runtime-tested.**
 
 ## Reference used without cloning
 
